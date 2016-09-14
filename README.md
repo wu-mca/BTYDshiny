@@ -1,10 +1,6 @@
 # BTYDshiny
 
-This is the source code for an interactive online demo of the R packages `BTYD` and `BTYDplus`.
-
-Currently deployed to:
-* https://mplatzer.shinyapps.io/BTYD/
-* https://mplatzer.shinyapps.io/BTYDplus/
+This is the source code for an interactive online demo of the R packages `BTYD` and `BTYDplus`. See https://github.com/wu-service-marketing/BTYDshiny/issues/1 for the planned UI.
 
 ## Style Guidelines
 
