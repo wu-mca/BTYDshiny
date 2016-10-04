@@ -39,11 +39,11 @@ saySomething <- function(a = "a long argument",
 ## About shiny app
 I think that ca 95% of work is done.
 There are a couple of problems, that we need to solve:
-* We need to create the "plot freq and recency vs holdout transactions" functions for 'MBG/NBD' and 'MBG/CNBD-k' models
+* We need to create the `plot freq and recency vs holdout transactions` functions for `MBG/NBD` and `MBG/CNBD-k` models
 * We need to create a table "estimated parameters - meann(lifetime) - meann(itt) - meann(palive)"
-* We need to solve the problem with formating of CBS table(Warning:in formatC(x = c(9862, 9865, 9862, 9862, 9893, 9862, 9904, 9904,  :
-  class of 'x' was discarded
-* The Donation datasete is very slow(especially 'MBG/NBD' model: even parameter max.param.value = 100 doesn't help a lot.
+* We need to solve the problem with formating of CBS table(`Warning:in formatC(x = c(9862, 9865, 9862, 9862, 9893, 9862, 9904, 9904,  :
+  class of 'x' was discarded`
+* The Donation datasete is very slow(especially `MBG/NBD` model: even parameter `max.param.value = 100` doesn't help a lot.
 
 Note: "Donation" and "Grocery" datasets don't have information about "sales": that is why i didn't include the information about sales.avg estimated in CBS tables
 
