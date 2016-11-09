@@ -12,7 +12,6 @@ cdnow <- cdnow[, date := as.Date(date, '%Y-%m-%d')]
 cdnow <- cdnow[, first := min(date), by='cust']
 cdnow <- arrange(cdnow,date)
 
-
 grocery <- data.table(read.csv(file = 'grocery-elog.csv', stringsAsFactors = F))
 grocery <- grocery[, date := as.Date(date, '%Y-%m-%d')]
 grocery$first <- as.Date(grocery$first)
