@@ -6,7 +6,7 @@ library(data.table)
 library(ggplot2)
 library(tidyr)
 
-cdnow <- data.table(read.csv(file = 'cdnow_elog.csv', stringsAsFactors = F))
+cdnow <- data.table(read.csv(file = 'cdnow_elog.csv', stringsAsFactors = F)) # hello
 cdnow <- cdnow[, date := as.Date(date, '%Y-%m-%d')]
 cdnow <- cdnow[, first := min(date), by='cust']
 cdnow <- arrange(cdnow,date)
