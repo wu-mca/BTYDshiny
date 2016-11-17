@@ -6,31 +6,28 @@ library(data.table)
 library(ggplot2)
 library(tidyr)
 
-cdnow <- data.table(read.csv(file = 'cdnow_elog.csv', stringsAsFactors = F)) # hello
-cdnow <- cdnow[, date := as.Date(date, '%Y-%m-%d')]
-cdnow <- cdnow[, first := min(date), by='cust']
-cdnow <- arrange(cdnow,date)
+cdnow <- fread('cdnow_elog.csv')
+cdnow[, date := as.Date(date, '%Y-%m-%d')]
+cdnow[, first := min(date), by='cust']
 
-grocery <- data.table(read.csv(file = 'grocery-elog.csv', stringsAsFactors = F))
-grocery <- grocery[, date := as.Date(date, '%Y-%m-%d')]
-grocery$first <- as.Date(grocery$first)
-grocery <- arrange(grocery,date)
+grocery <- fread('grocery-elog.csv')[, first:=NULL]
+grocery[, date := as.Date(date, '%Y-%m-%d')]
+grocery[, first := min(date), by='cust']
 
-
-donations <- data.table(read.csv('donations-elog.csv', stringsAsFactors = F))
+donations <- fread('donations-elog.csv')
 donations[, date := as.Date(date, format='%m/%d/%Y')]
 donations[, first := min(date), by='cust']
-donations <- arrange(donations,date)
+
 
 
 
 ui <- fluidPage(
-    headerPanel('BTYDplus package'),
+    headerPanel('BTYD shiny demo'),
     sidebarPanel(
-        helpText("Options to choose the dataset, the model and calibration period in %(optional)."),
         selectInput('Data','Select the dataset',choices = c('CDNOW','Donations','Grocery')),
-        selectInput('Model','Select the model',choices = c('ParetoNBD', 'BG/NBD', 'MBG/NBD', 'MBG/CNBD-k')),
-        sliderInput("cal_per",value = 0.5,max = 0.90,min = 0.1,label = "% of total data for calibration period")
+        selectInput('Model','Select the model',choices = c('Pareto/NBD', 'BG/NBD', 'MBG/NBD', 'MBG/CNBD-k')),
+        sliderInput("cal_per",value = 50,max = 90,min = 10,post = '%',label = "Calibration/holdout split"),
+        width = 3
     ),
     mainPanel(tabsetPanel(
         tabPanel(title = 'Descriptive Summary Statistic',
@@ -70,13 +67,14 @@ ui <- fluidPage(
 server <- function(input,output){
 
     data <- reactive({
-        cbs_cdnow <- elog2cbs(cdnow, units = 'week', T.cal = unique(cdnow$date)[length(unique(cdnow$date))*input$cal_per])
+        cbs_cdnow <- elog2cbs(cdnow, units = 'week', T.cal = sort(unique(cdnow$date))[uniqueN(cdnow$date)*input$cal_per/100])
         cbs_cdnow <- as.data.frame(cbs_cdnow)
 
-        cbs_grocery <- elog2cbs(grocery, T.cal = unique(grocery$date)[length(unique(grocery$date))*input$cal_per], T.tot = as.Date('2007-12-31'))
+        cbs_grocery <- elog2cbs(grocery, T.cal = sort(unique(grocery$date))[uniqueN(grocery$date)*input$cal_per/100])
         cbs_grocery <- as.data.frame(cbs_grocery)
         #Take the length of the unique dates in dataset and * on the number from 0.1 till 0.9 => new date for calibration period.
-        cbs_donations <- elog2cbs(donations, units='week', T.cal = unique(donations$date)[length(unique(donations$date))*input$cal_per], T.tot = as.Date('2006-07-01'))
+        cbs_donations <- elog2cbs(donations, units='week', T.cal = sort(unique(donations$date))[uniqueN(donations$date)*input$cal_per/100])
+        cbs_donations <- as.data.frame(cbs_donations)
 
         data <- list(cbs_cdnow,cbs_grocery,cbs_donations)
     })
@@ -132,14 +130,14 @@ server <- function(input,output){
 
     output$tim_pat <- renderPlot({
         if(input$Data == "CDNOW"){
-            plotTimingPatterns(cdnow, n = 30, T.cal = unique(cdnow$date)[length(unique(cdnow$date))*input$cal_per],
+            plotTimingPatterns(cdnow, n = 30, T.cal = sort(unique(cdnow$date))[uniqueN(cdnow$date)*input$cal_per/100],
                                headers = c("Calibration Period", "Holdout Period"), title = "")
         }else if(input$Data == "Grocery"){
-            plotTimingPatterns(grocery, n = 30, T.cal = unique(grocery$date)[length(unique(cdnow$date))*input$cal_per],
+            plotTimingPatterns(grocery, n = 30, T.cal = sort(unique(grocery$date))[uniqueN(grocery$date)*input$cal_per/100],
                                headers = c("Calibration Period", "Holdout Period"), title = "")
 
         }else if(input$Data == "Donations"){
-            plotTimingPatterns(donations, n = 30, T.cal = unique(donations$date)[length(unique(cdnow$date))*input$cal_per],
+            plotTimingPatterns(donations, n = 30, T.cal = sort(unique(donations$date))[uniqueN(donations$date)*input$cal_per/100],
                                headers = c("Calibration Period", "Holdout Period"), title = "")
 
         }
@@ -148,7 +146,7 @@ server <- function(input,output){
 
     output$p_alive <- renderPlot({
         if(input$Data == "CDNOW"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_cdnow <- data()[[1]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_cdnow,max.param.value = 100)
                 palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, cbs_cdnow$x, cbs_cdnow$t.x, cbs_cdnow$T.cal)
@@ -190,7 +188,7 @@ server <- function(input,output){
                 plot
             }
         }else if(input$Data == "Grocery"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_grocery <- data()[[2]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_grocery,max.param.value = 100)
                 palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, cbs_grocery$x, cbs_grocery$t.x, cbs_grocery$T.cal)
@@ -232,7 +230,7 @@ server <- function(input,output){
                 plot
             }
         }else if(input$Data == "Donations"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_donations <- data()[[3]]
                 ##works very slow
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_donations,max.param.value = 100)
@@ -279,7 +277,7 @@ server <- function(input,output){
 
     output$freq_trans <-renderPlot({
         if(input$Data == "CDNOW"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_cdnow <- data()[[1]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_cdnow,max.param.value = 100)
                 pnbd.PlotFreqVsConditionalExpectedFrequency(params.pnbd,cbs_cdnow$T.star[1],cbs_cdnow,cbs_cdnow$x.star,censor =7)
@@ -298,7 +296,7 @@ server <- function(input,output){
 
             }
         }else if(input$Data == "Grocery"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_grocery <- data()[[2]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_grocery,max.param.value = 100)
                 pnbd.PlotFreqVsConditionalExpectedFrequency(params.pnbd,cbs_grocery$T.star[1],cbs_grocery,cbs_grocery$x.star,censor =7)
@@ -316,7 +314,7 @@ server <- function(input,output){
 
             }
         }else if(input$Data == "Donations"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_donations <- data()[[3]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_donations,max.param.value = 100)
                 pnbd.PlotFreqVsConditionalExpectedFrequency(params.pnbd,cbs_donations$T.star[1],cbs_donations,cbs_donations$x.star,censor =7)
@@ -339,7 +337,7 @@ server <- function(input,output){
 
     output$incr_weekly <-renderPlot({
         if(input$Data == "CDNOW"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_cdnow <- data()[[1]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_cdnow,max.param.value = 100)
                 pnbd.PlotTrackingInc(params.pnbd,cbs_cdnow$T.cal,T.tot = 78,actual.inc.tracking.data =elog2inc(cdnow))
@@ -364,7 +362,7 @@ server <- function(input,output){
 
             }
         }else if(input$Data == "Grocery"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_grocery <- data()[[2]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_grocery,max.param.value = 100)
                 pnbd.PlotTrackingInc(params.pnbd,cbs_grocery$T.cal,T.tot = 104,actual.inc.tracking.data =elog2inc(grocery))
@@ -388,7 +386,7 @@ server <- function(input,output){
 
             }
         }else if(input$Data == "Donations"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_donations <- data()[[3]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_donations,max.param.value = 100)
                 pnbd.PlotTrackingInc(params.pnbd,cbs_donations$T.cal,T.tot = 234,actual.inc.tracking.data =elog2inc(donations))
@@ -416,7 +414,7 @@ server <- function(input,output){
 
     output$cum_weekly <- renderPlot({
         if(input$Data == "CDNOW"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_cdnow <- data()[[1]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_cdnow,max.param.value = 100)
                 pnbd.PlotTrackingCum(params.pnbd,cbs_cdnow$T.cal,T.tot = 78,actual.cu.tracking.data =elog2cum(cdnow))
@@ -441,7 +439,7 @@ server <- function(input,output){
 
             }
         }else if(input$Data == "Grocery"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_grocery <- data()[[2]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_grocery,max.param.value = 100)
                 pnbd.PlotTrackingCum(params.pnbd,cbs_grocery$T.cal,T.tot = 104,actual.cu.tracking.data =elog2cum(grocery))
@@ -465,7 +463,7 @@ server <- function(input,output){
 
             }
         }else if(input$Data == "Donations"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_donations <- data()[[3]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_donations,max.param.value = 100)
                 pnbd.PlotTrackingCum(params.pnbd,cbs_donations$T.cal,T.tot = 234,actual.cu.tracking.data =elog2cum(donations))
@@ -494,7 +492,7 @@ server <- function(input,output){
 
     output$est_param <- renderTable({
         if(input$Data == "CDNOW"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_cdnow <- data()[[1]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_cdnow,max.param.value = 100)
                 palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, cbs_cdnow$x, cbs_cdnow$t.x, cbs_cdnow$T.cal)
@@ -527,7 +525,7 @@ server <- function(input,output){
                 d
             }
         }else if(input$Data == "Grocery"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_grocery <- data()[[2]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_grocery,max.param.value = 100)
                 palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, cbs_grocery$x, cbs_grocery$t.x, cbs_grocery$T.cal)
@@ -560,7 +558,7 @@ server <- function(input,output){
                 d
             }
         }else if(input$Data == "Donations"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_donations <- data()[[3]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_donations,max.param.value = 100)
                 palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, cbs_donations$x, cbs_donations$t.x, cbs_donations$T.cal)
@@ -599,7 +597,7 @@ server <- function(input,output){
 
     output$rec_trans <-renderPlot({
         if(input$Data == "CDNOW"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_cdnow <- data()[[1]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_cdnow,max.param.value = 100)
                 pnbd.PlotRecVsConditionalExpectedFrequency(params.pnbd,cbs_cdnow,cbs_cdnow$T.star[1],cbs_cdnow$x.star)
@@ -621,7 +619,7 @@ server <- function(input,output){
 
             }
         }else if(input$Data == "Grocery"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_grocery <- data()[[2]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_grocery,max.param.value = 100)
                 pnbd.PlotRecVsConditionalExpectedFrequency(params.pnbd,cbs_grocery,cbs_grocery$T.star[1],cbs_grocery$x.star)
@@ -644,7 +642,7 @@ server <- function(input,output){
             }
 
         }else if(input$Data == "Donations"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_donations <- data()[[3]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_donations,max.param.value = 100)
                 pnbd.PlotRecVsConditionalExpectedFrequency(params.pnbd,cbs_donations,cbs_donations$T.star[1],cbs_donations$x.star)
@@ -671,7 +669,7 @@ server <- function(input,output){
     ##no sales data in Donations and Grocery
     output$suf_mat <- renderTable({
         if(input$Data == "CDNOW"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_cdnow <- data()[[1]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_cdnow,max.param.value = 100)
                 cbs_cdnow$palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, cbs_cdnow$x, cbs_cdnow$t.x, cbs_cdnow$T.cal)
@@ -726,7 +724,7 @@ server <- function(input,output){
                 data_cbs
             }
         }else if(input$Data == "Grocery"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_grocery <- data()[[2]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_grocery,max.param.value = 100)
                 cbs_grocery$palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, cbs_grocery$x, cbs_grocery$t.x, cbs_grocery$T.cal)
@@ -780,7 +778,7 @@ server <- function(input,output){
                 data_cbs
             }
         }else if(input$Data == "Donations"){
-            if(input$Model == "ParetoNBD"){
+            if(input$Model == "Pareto/NBD"){
                 cbs_donations <- data()[[3]]
                 params.pnbd <- BTYD::pnbd.EstimateParameters(cbs_donations,max.param.value = 100)
                 cbs_donations$palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, cbs_donations$x, cbs_donations$t.x, cbs_donations$T.cal)
