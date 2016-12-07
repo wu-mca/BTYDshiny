@@ -32,6 +32,7 @@ ui <- fluidPage(
         selectInput('Model','Select the model',choices = c('Pareto/NBD', 'BG/NBD', 'MBG/NBD', 'MBG/CNBD-k')),
         sliderInput("cal_per",value = 50,max = 90,min = 10,post = '%',label = "Calibration/holdout split"),
         actionButton(inputId = 'go',label = 'update'),
+
         width = 3
     ),
     mainPanel(tabsetPanel(
