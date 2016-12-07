@@ -71,7 +71,6 @@ server <- function(input,output){
     data_elog <- reactive({
         data <- list(CDNOW = cdnow, Grocery = grocery,Donations = donations)
         data$selected <- data[[input$Data]]
-
         data
     })
 
