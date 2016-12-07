@@ -86,6 +86,7 @@ server <- function(input,output){
 
         data <- list(CDNOW = cbs_cdnow, Grocery = cbs_grocery,Donations = cbs_donations)
         data$selected <- data[[input$Data]]
+
         data
     })
 
