@@ -113,7 +113,7 @@ server <- function(input,output){
             suf_mat <- arrange(suf_mat,desc(xstar.pnbd))
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
-            suf_mat[,-1]
+
 
             measures <- c(
                 "MAE" = function(a, f) mean(abs(a - f)),
