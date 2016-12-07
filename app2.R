@@ -31,6 +31,7 @@ ui <- fluidPage(
         selectInput('Data','Select the dataset',choices = c('CDNOW','Donations','Grocery')),
         selectInput('Model','Select the model',choices = c('Pareto/NBD', 'BG/NBD', 'MBG/NBD', 'MBG/CNBD-k')),
         sliderInput("cal_per",value = 50,max = 90,min = 10,post = '%',label = "Calibration/holdout split"),
+        actionButton(inputId = 'go',label = 'update'),
         width = 3
     ),
     mainPanel(tabsetPanel(
@@ -68,13 +69,13 @@ ui <- fluidPage(
 )
 
 server <- function(input,output){
-    data_elog <- reactive({
+    data_elog <- eventReactive(input$go,{
         data <- list(CDNOW = cdnow, Grocery = grocery,Donations = donations)
         data$selected <- data[[input$Data]]
         data
     })
 
-    data_cbs <- reactive({
+    data_cbs <- eventReactive(input$go,{
         cbs_cdnow <- elog2cbs(cdnow, units = 'week', T.cal = sort(unique(cdnow$date))[uniqueN(cdnow$date)*input$cal_per/100])
         cbs_cdnow <- as.data.frame(cbs_cdnow)
 
@@ -90,7 +91,7 @@ server <- function(input,output){
         data
     })
 
-    model <- reactive({
+    model <- eventReactive(input$go,{
         data <- data_cbs()$selected
         if(input$Model == "Pareto/NBD"){
             params.pnbd <- BTYD::pnbd.EstimateParameters(data,max.param.value = 100)
