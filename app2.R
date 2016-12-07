@@ -10,13 +10,17 @@ cdnow <- fread('cdnow_elog.csv')
 cdnow[, date := as.Date(date, '%Y-%m-%d')]
 cdnow[, first := min(date), by='cust']
 
+
+
 grocery <- fread('grocery-elog.csv')[, first:=NULL]
 grocery[, date := as.Date(date, '%Y-%m-%d')]
 grocery[, first := min(date), by='cust']
 
+
 donations <- fread('donations-elog.csv')
 donations[, date := as.Date(date, format='%m/%d/%Y')]
 donations[, first := min(date), by='cust']
+
 
 
 
@@ -31,7 +35,6 @@ ui <- fluidPage(
     ),
     mainPanel(tabsetPanel(
         tabPanel(title = 'Descriptive Summary Statistic',
-                 h4('Descriptive Statistics'),
                  tableOutput('descr_stats'),
 
                  h4('Plot Of Timing Patterns'),
@@ -110,8 +113,25 @@ server <- function(input,output){
             suf_mat <- arrange(suf_mat,desc(xstar.pnbd))
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
+            suf_mat[,-1]
 
-            l <- list(params = params.pnbd,palive = palive.pnbd,plot_freq = plot_freq_trans_fn,incr_weekly = incr_weekly,cum_weekly = cum_weekly,rec_trans = rec_trans,est_param = est_param,suf_mat = suf_mat)
+            measures <- c(
+                "MAE" = function(a, f) mean(abs(a - f)),
+                "MSLE" = function(a, f) mean(((log(a + 1) - log(f + 1)))^2),
+                "BIAS" = function(a, f) sum(f)/sum(a) - 1)
+            models <- c("Pareto/NBD" = "pnbd")
+
+            errors <- sapply(measures, function(measure) {
+                sapply(models, function(model) {
+                    err <- do.call(measure, list(a = data$x.star, f = data[[paste0("xstar.", model)]]))
+                    round(err, 3)
+                    err
+                })
+            })
+
+
+
+            l <- list(params = params.pnbd,palive = palive.pnbd,plot_freq = plot_freq_trans_fn,incr_weekly = incr_weekly,cum_weekly = cum_weekly,rec_trans = rec_trans,est_param = est_param,suf_mat = suf_mat,errors = errors)
         }else if(input$Model == "BG/NBD"){
             params.bgnbd <- BTYD::bgnbd.EstimateParameters(data)
             palive.bgnbd <- BTYD::bgnbd.PAlive(params = params.bgnbd, data$x, data$t.x, data$T.cal)
@@ -135,7 +155,20 @@ server <- function(input,output){
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
 
-            l <- list(params = params.bgnbd,palive = palive.bgnbd,plot_freq = plot_freq_trans_fn,incr_weekly = incr_weekly,cum_weekly = cum_weekly,rec_trans = rec_trans,est_param = est_param,suf_mat = suf_mat)
+            measures <- c(
+                "MAE" = function(a, f) mean(abs(a - f)),
+                "MSLE" = function(a, f) mean(((log(a + 1) - log(f + 1)))^2),
+                "BIAS" = function(a, f) sum(f)/sum(a) - 1)
+            models <- c("BG/NBD" = "bgnbd")
+
+            errors <- sapply(measures, function(measure) {
+                sapply(models, function(model) {
+                    err <- do.call(measure, list(a = data$x.star, f = data[[paste0("xstar.", model)]]))
+                    round(err, 3)
+                })
+            })
+
+            l <- list(params = params.bgnbd,palive = palive.bgnbd,plot_freq = plot_freq_trans_fn,incr_weekly = incr_weekly,cum_weekly = cum_weekly,rec_trans = rec_trans,est_param = est_param,suf_mat = suf_mat,errors = errors)
         }else if(input$Model == "MBG/NBD"){
             params.mbgnbd <- mbgnbd.EstimateParameters(data)
             palive.mbgnbd <- mbgcnbd.PAlive(params = params.mbgnbd, data$x, data$t.x, data$T.cal)
@@ -156,6 +189,19 @@ server <- function(input,output){
             suf_mat <- arrange(suf_mat,desc(xstar.mbgnbd))
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
+
+            measures <- c(
+                "MAE" = function(a, f) mean(abs(a - f)),
+                "MSLE" = function(a, f) mean(((log(a + 1) - log(f + 1)))^2),
+                "BIAS" = function(a, f) sum(f)/sum(a) - 1)
+            models <- c("MBG/NBD" = "mbgnbd")
+
+            errors <- sapply(measures, function(measure) {
+                sapply(models, function(model) {
+                    err <- do.call(measure, list(a = data$x.star, f = data[[paste0("xstar.", model)]]))
+                    round(err, 3)
+                })
+            })
 
             l <- list(params = params.mbgnbd,palive = palive.mbgnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat)
         }else if(input$Model == "MBG/CNBD-k"){
@@ -179,6 +225,19 @@ server <- function(input,output){
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
 
+            measures <- c(
+                "MAE" = function(a, f) mean(abs(a - f)),
+                "MSLE" = function(a, f) mean(((log(a + 1) - log(f + 1)))^2),
+                "BIAS" = function(a, f) sum(f)/sum(a) - 1)
+            models <- c("MBG/CNBD-k" = "mbgcnbd")
+
+            errors <- sapply(measures, function(measure) {
+                sapply(models, function(model) {
+                    err <- do.call(measure, list(a = data$x.star, f = data[[paste0("xstar.", model)]]))
+                    round(err, 3)
+                })
+            })
+
             l <- list(params = params.mbgcnbd,palive = palive.mbgcnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat)
         }
 
@@ -198,14 +257,14 @@ server <- function(input,output){
         per.length.hold <- c(round(cbs_cdnow$T.star[1]),round(cbs_grocery$T.star[1]),round(cbs_donations$T.star[1]))
         #e)share of inactive customer(calibr)
         sh.in.cust.cal <- c(round(sum(cbs_cdnow$x == 0)/nrow(cbs_cdnow),2),round(sum(cbs_grocery$x == 0)/nrow(cbs_grocery),2),
-                            round(sum(cbs_donations$x == 0)/nrow(cbs_donations),2))
+                            round(sum(cbs_donations$x == 0)/nrow(cbs_donations),2))*100
         #f)share of inactive customer(holdout)
         sh.in.cust.hold <- c(round(sum(cbs_cdnow$x.star == 0)/nrow(cbs_cdnow),2),round(sum(cbs_grocery$x.star == 0)/nrow(cbs_grocery),2),
-                             round(sum(cbs_donations$x.star == 0)/nrow(cbs_donations),2))
+                             round(sum(cbs_donations$x.star == 0)/nrow(cbs_donations),2))*100
         #g)share of customers with 4 or > transactions(calibration)
-        sh.cust.4.plus.cal <- c(round((sum(cbs_cdnow$x >=4)/nrow(cbs_cdnow)),2),round(sum((cbs_grocery$x >=4)/nrow(cbs_grocery)),2),round(sum((cbs_donations$x >=4)/nrow(cbs_donations)),2))
+        sh.cust.4.plus.cal <- c(round((sum(cbs_cdnow$x >=4)/nrow(cbs_cdnow)),2),round(sum((cbs_grocery$x >=4)/nrow(cbs_grocery)),2),round(sum((cbs_donations$x >=4)/nrow(cbs_donations)),2))*100
         #h)share of customers with 4 or > transactions(holdout)
-        sh.cust.4.plus.hold <- c(round((sum(cbs_cdnow$x.star >=4)/nrow(cbs_cdnow)),2),round(sum((cbs_grocery$x.star >=4)/nrow(cbs_grocery)),2),round(sum((cbs_donations$x.star >=4)/nrow(cbs_donations)),2))
+        sh.cust.4.plus.hold <- c(round((sum(cbs_cdnow$x.star >=4)/nrow(cbs_cdnow)),2),round(sum((cbs_grocery$x.star >=4)/nrow(cbs_grocery)),2),round(sum((cbs_donations$x.star >=4)/nrow(cbs_donations)),2))*100
         #i)mean 0f number of purchases(calibr)
         num.purch.cal <- c(round(mean(cbs_cdnow$x),2),round(mean(cbs_grocery$x),2),round(mean(cbs_donations$x),2))
         #j)mean 0f number of purchases(holdout)
@@ -222,6 +281,7 @@ server <- function(input,output){
                          sh.cust.4.plus.cal,sh.cust.4.plus.hold,num.purch.cal,num.purch.hold,
                          num.purch.cal.act,num.purch.hold.act,wheat)
         des_stat <- as.data.frame(des_stat)
+        des_stat[,5:8] <- lapply(des_stat[,5:8],function(x){paste(x,'%',sep = "")})
         des_stat <- data.frame(lapply(des_stat, as.character), stringsAsFactors=FALSE)
         d <- cbind(des_stat[1:2], do.call(cbind, lapply(c(3,5,7,9,11), function(i) do.call(paste, c(des_stat[i:(i+1)], sep="/")))))
         d <- cbind(d,wheat)
@@ -288,7 +348,7 @@ server <- function(input,output){
         model()$suf_mat
         })
     output$stats <- renderTable({
-
+        model()$errors
         })
 }
 
