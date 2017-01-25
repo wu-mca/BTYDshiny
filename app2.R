@@ -47,14 +47,16 @@ ui <- fluidPage(
                  plotOutput('incr_weekly'),
                  plotOutput('cum_weekly'),
 
+                 h4('distribution of P(alive)'),
+                 plotOutput('p_alive'),
+
                  h4('Frequency and Recency vs Holdout Transactions'),
                  plotOutput('freq_trans'),
-                 plotOutput('rec_trans'),
+                 plotOutput('rec_trans')),
 
 
 
-                 h4('distribution of P(alive)'),
-                 plotOutput('p_alive')),
+
 
         tabPanel(title = 'Customer Level Analysis',
                  h4('Sufficient Statistic Matrix'),
@@ -156,7 +158,7 @@ server <- function(input,output){
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
 
-            l <- list(params = params.mbgnbd,palive = palive.mbgnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat)
+            l <- list(params = params.mbgnbd,palive = palive.mbgnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat,rec_trans = 'Not developed',est_param = "Not developed")
         }else if(input$Model == "MBG/CNBD-k"){
             params.mbgcnbd <- mbgcnbd.EstimateParameters(data)
             palive.mbgcnbd <- mbgcnbd.PAlive(params = params.mbgcnbd, data$x, data$t.x, data$T.cal)
@@ -178,7 +180,7 @@ server <- function(input,output){
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
 
-            l <- list(params = params.mbgcnbd,palive = palive.mbgcnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat)
+            l <- list(params = params.mbgcnbd,palive = palive.mbgcnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat,rec_trans = 'Not developed',est_param = "Not developed")
         }
 
     })
@@ -247,14 +249,19 @@ server <- function(input,output){
             xlab("Probability Customer is 'Live'")+
             theme_minimal()
         plot
-        })
+    })
 
     output$freq_trans <-renderPlot({
         data <- data_cbs()$selected
         param <- model()$params
-        model()$plot_freq(param,data$T.star[1],data ,data$x.star,censor =7)
+        if(length(param) == 5){
+            k <- plot(1,1,type = 'n',main = 'Not yet implemented')
+        }else{
+            k <- model()$plot_freq(param,data$T.star[1],data ,data$x.star,censor =7)
+        }
+        k
 
-        })
+    })
 
 
     output$incr_weekly <-renderPlot({
@@ -262,28 +269,34 @@ server <- function(input,output){
         data_cbs <- data_cbs()$selected
         param <-model()$params
         model()$incr_weekly(param,data_cbs$T.cal,T.tot = 78,actual.inc.tracking.data =elog2inc(data))
-        })
+    })
 
     output$cum_weekly <- renderPlot({
         data <- data_elog()$selected
         data_cbs <- data_cbs()$selected
         param <-model()$params
         model()$cum_weekly(param,data_cbs$T.cal,T.tot = 78,actual.cu.tracking.data =elog2cum(data))
-        })
+    })
 
     output$est_param <- renderTable({
         est_param<-model()$est_param
-        })
+    })
 
     output$rec_trans <-renderPlot({
         data_cbs <- data_cbs()$selected
         param <-model()$params
-        model()$rec_trans(param,data_cbs,data_cbs$T.star[1],data_cbs$x.star)
-        })
+        if(length(param) == 5){
+            k <- plot(1,1,type = 'n',main = 'Not yet implemented')
+
+        }else{
+            k <-model()$rec_trans(param,data_cbs,data_cbs$T.star[1],data_cbs$x.star)
+        }
+        k
+    })
     ##no sales data in Donations and Grocery
     output$suf_mat <- renderTable({
         model()$suf_mat
-        })
+    })
 
 }
 
