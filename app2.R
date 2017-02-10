@@ -11,15 +11,9 @@ cdnow[, date := as.Date(date, '%Y-%m-%d')]
 cdnow[, first := min(date), by='cust']
 
 
-
-
 grocery <- fread('grocery-elog.csv')[, first:=NULL]
 grocery[, date := as.Date(date, '%Y-%m-%d')]
 grocery[, first := min(date), by='cust']
-
-
-
-
 
 
 
@@ -28,7 +22,7 @@ ui <- fluidPage(
     sidebarPanel(
         selectInput('Data','Select the dataset',choices = c('CDNOW','Grocery')),
         selectInput('Model','Select the model',choices = c('Pareto/NBD', 'BG/NBD', 'MBG/NBD', 'MBG/CNBD-k')),
-        sliderInput("cal_per",value = 50,max = 90,min = 10,post = '%',label = "Calibration/holdout split"),
+        sliderInput("cal_per",value = 50,max = 70,min = 30,post = '%',label = "Calibration/holdout split"),
         actionButton(inputId = 'go',label = 'update'),
 
         width = 3
@@ -79,7 +73,7 @@ server <- function(input,output){
 
         cbs_grocery <- elog2cbs(grocery, T.cal = sort(unique(grocery$date))[uniqueN(grocery$date)*input$cal_per/100])
 
-        #Take the length of the unique dates in dataset and * on the number from 0.1 till 0.9 => new date for calibration period.
+        #Take the length of the unique dates in dataset and * on the number from 0.25 till 0.75 => new date for calibration period.
 
         data <- list(CDNOW = cbs_cdnow, Grocery = cbs_grocery)
         data$selected <- data[[input$Data]]
@@ -92,11 +86,11 @@ server <- function(input,output){
         if(input$Model == "Pareto/NBD"){
             params.pnbd <- BTYD::pnbd.EstimateParameters(data,max.param.value = 100)
             palive.pnbd <- BTYD::pnbd.PAlive(params = params.pnbd, data$x, data$t.x, data$T.cal)
-            plot_freq_trans_fn <- pnbd.PlotFreqVsConditionalExpectedFrequency
+
             incr_weekly <- pnbd.PlotTrackingInc
             cum_weekly <- pnbd.PlotTrackingCum
             rec_trans <- pnbd.PlotRecVsConditionalExpectedFrequency
-
+            plot_freq_trans_fn <- pnbd.PlotFreqVsConditionalExpectedFrequency
             est_param <- rbind(params.pnbd)
             colnames(est_param) <- c("r", "alpha", "s", "beta")
 
@@ -143,6 +137,9 @@ server <- function(input,output){
             incr_weekly <- mbgcnbd.PlotTrackingInc
             cum_weekly <- mbgcnbd.PlotTrackingCum
 
+            rec_trans <- bgcnbd.PlotRecVsConditionalExpectedFrequency
+            plot_freq_trans_fn <- bgcnbd.PlotFreqVsConditionalExpectedFrequency
+
             est_param <- rbind(params.mbgnbd)
             colnames(est_param) <- c("k","r", "alpha", "a", "b")
 
@@ -158,12 +155,15 @@ server <- function(input,output){
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
 
-            l <- list(params = params.mbgnbd,palive = palive.mbgnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat,rec_trans = 'Not developed',est_param = "Not developed")
+            l <- list(params = params.mbgnbd,palive = palive.mbgnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat,rec_trans = rec_trans,plot_freq= plot_freq_trans_fn)
         }else if(input$Model == "MBG/CNBD-k"){
             params.mbgcnbd <- mbgcnbd.EstimateParameters(data)
             palive.mbgcnbd <- mbgcnbd.PAlive(params = params.mbgcnbd, data$x, data$t.x, data$T.cal)
             incr_weekly <- mbgcnbd.PlotTrackingInc
             cum_weekly <- mbgcnbd.PlotTrackingCum
+
+            rec_trans <- bgcnbd.PlotRecVsConditionalExpectedFrequency
+            plot_freq_trans_fn <- bgcnbd.PlotFreqVsConditionalExpectedFrequency
 
             est_param <- rbind(params.mbgcnbd)
             colnames(est_param) <- c("k","r", "alpha", "a", "b")
@@ -180,7 +180,7 @@ server <- function(input,output){
             rows_middle <- (nrow(suf_mat)/2) + 5
             suf_mat <- as.data.frame(rbind(head(suf_mat),suf_mat[(nrow(suf_mat)/2):rows_middle,],tail(suf_mat)))
 
-            l <- list(params = params.mbgcnbd,palive = palive.mbgcnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat,rec_trans = 'Not developed',est_param = "Not developed")
+            l <- list(params = params.mbgcnbd,palive = palive.mbgcnbd,incr_weekly = incr_weekly,cum_weekly = cum_weekly,est_param = est_param,suf_mat = suf_mat,rec_trans = rec_trans,plot_freq= plot_freq_trans_fn)
         }
 
     })
@@ -249,50 +249,41 @@ server <- function(input,output){
             xlab("Probability Customer is 'Live'")+
             theme_minimal()
         plot
-    })
+        })
 
     output$freq_trans <-renderPlot({
         data <- data_cbs()$selected
         param <- model()$params
-        if(length(param) == 5){
-            k <- plot(1,1,type = 'n',main = 'Not yet implemented')
-        }else{
-            k <- model()$plot_freq(param,data$T.star[1],data ,data$x.star,censor =7)
-        }
-        k
+        k <- model()$plot_freq(param,data$T.star[1],data ,data$x.star,censor =7)
 
-    })
+
+        })
 
 
     output$incr_weekly <-renderPlot({
         data <- data_elog()$selected
         data_cbs <- data_cbs()$selected
         param <-model()$params
-        model()$incr_weekly(param,data_cbs$T.cal,T.tot = 78,actual.inc.tracking.data =elog2inc(data))
-    })
+        model()$incr_weekly(param,round(data_cbs$T.cal),T.tot = max(data_cbs$T.cal + data_cbs$T.star),actual.inc.tracking.data =elog2inc(data))
+        })
 
     output$cum_weekly <- renderPlot({
         data <- data_elog()$selected
         data_cbs <- data_cbs()$selected
         param <-model()$params
-        model()$cum_weekly(param,data_cbs$T.cal,T.tot = 78,actual.cu.tracking.data =elog2cum(data))
-    })
+        model()$cum_weekly(param,round(data_cbs$T.cal),T.tot = max(data_cbs$T.cal + data_cbs$T.star),actual.cu.tracking.data =elog2cum(data))
+        })
 
     output$est_param <- renderTable({
         est_param<-model()$est_param
-    })
+        })
 
     output$rec_trans <-renderPlot({
         data_cbs <- data_cbs()$selected
         param <-model()$params
-        if(length(param) == 5){
-            k <- plot(1,1,type = 'n',main = 'Not yet implemented')
+        k <-model()$rec_trans(param,data_cbs,data_cbs$T.star[1],data_cbs$x.star)
 
-        }else{
-            k <-model()$rec_trans(param,data_cbs,data_cbs$T.star[1],data_cbs$x.star)
-        }
-        k
-    })
+        })
     ##no sales data in Donations and Grocery
     output$suf_mat <- renderTable({
         model()$suf_mat
